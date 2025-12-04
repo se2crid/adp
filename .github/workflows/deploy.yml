@@ -1,0 +1,223 @@
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      deploy_type:
+        required: true
+        type: string
+        default: simple_deploy
+      adp_id:
+        required: false
+        type: string
+
+  workflow_dispatch:
+    inputs:
+      deploy_type:
+        description: 'Deployment type'
+        required: true
+        default: 'simple_deploy'
+        type: choice
+        options:
+          - simple_deploy
+          - process_adp_and_deploy
+      adp_id:
+        description: 'ADP ID'
+        required: false
+        type: string
+
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+  
+jobs:
+  process_adp:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_type == 'process_adp_and_deploy' }}
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Download and Process ADP
+        run: |
+          if [ -z "${{ inputs.adp_id }}" ]; then
+            echo "Error: ADP ID is required for process_adp_and_deploy option"
+            exit 1
+          fi
+          
+          RESPONSE=$(curl -s -X GET "https://api.altstore.io/adps/${{ inputs.adp_id }}")
+          echo "ADP API Response: $RESPONSE"
+          
+          DOWNLOAD_URL=$(echo "$RESPONSE" | jq -r '.downloadURL')
+          if [ "$DOWNLOAD_URL" = "null" ] || [ -z "$DOWNLOAD_URL" ]; then
+            echo "Error: Download URL not found in response"
+            exit 1
+          fi
+          
+          mkdir -p "adps/${{ inputs.adp_id }}"
+          
+          echo "Downloading ADP from $DOWNLOAD_URL"
+          curl -L "$DOWNLOAD_URL" -o "adp.zip"
+          
+          unzip -q adp.zip -d "adps/${{ inputs.adp_id }}"
+          
+          MANIFEST_FILE="adps/${{ inputs.adp_id }}/manifest.json"
+          if [ ! -f "$MANIFEST_FILE" ]; then
+            echo "Error: manifest.json not found in downloaded package"
+            exit 1
+          fi
+          
+          BUNDLE_ID=$(jq -r '.bundleId' "$MANIFEST_FILE")
+          VERSION=$(jq -r '.shortVersionString' "$MANIFEST_FILE")
+          BUILD=$(jq -r '.bundleVersion' "$MANIFEST_FILE")
+          MIN_OS=$(jq -r '.minimumSystemVersions.ios' "$MANIFEST_FILE")
+          APPLE_ITEM_ID=$(jq -r '.appleItemId' "$MANIFEST_FILE")
+          
+          echo "App details:"
+          echo "Bundle ID: $BUNDLE_ID"
+          echo "Version: $VERSION"
+          echo "Build: $BUILD"
+          echo "Min OS Version: $MIN_OS"
+          echo "Apple Item ID: $APPLE_ITEM_ID"
+          
+          SIZE=$(stat -f%z "adp.zip")
+
+          APP_INDEX=$(jq --arg bundleId "$BUNDLE_ID" '.apps | map(.bundleIdentifier == $bundleId) | index(true)' app-repo.json)
+          CURRENT_DATE=$(date -u +"%Y-%m-%dT%H:%M:%S%z" | sed 's/\([0-9]\{2\}\)$/:\1/')
+          DOWNLOAD_URL="https://adp.se2crid.me/adps/${{ inputs.adp_id }}"
+          
+          if [ "$APP_INDEX" != "null" ]; then
+            echo "App exists in app-repo.json at index $APP_INDEX, updating version info"
+            
+            VERSION_EXISTS=$(jq --arg version "$VERSION" --argjson appIndex "$APP_INDEX" '.apps[$appIndex].versions | map(select(.version == $version)) | length' app-repo.json)
+            
+            if [ "$VERSION_EXISTS" -gt 0 ]; then
+              echo "Version $VERSION already exists, updating entry"
+              jq --arg version "$VERSION" --arg size "$SIZE" --arg date "$CURRENT_DATE" \
+                --arg downloadURL "$DOWNLOAD_URL" --arg buildVersion "$BUILD" --arg minOSVersion "$MIN_OS" \
+                --argjson appIndex "$APP_INDEX" \
+                '.apps[$appIndex].versions = [.apps[$appIndex].versions[] | 
+                  if .version == $version then 
+                    {
+                      "downloadURL": $downloadURL,
+                      "size": ($size | tonumber),
+                      "version": $version,
+                      "buildVersion": $buildVersion,
+                      "date": $date,
+                      "localizedDescription": "Update via AltStore PAL",
+                      "minOSVersion": $minOSVersion
+                    } 
+                  else . end
+                ]' app-repo.json > temp.json && mv temp.json app-repo.json
+            else
+              echo "Adding new version $VERSION"
+              jq --arg version "$VERSION" --arg size "$SIZE" --arg date "$CURRENT_DATE" \
+                --arg downloadURL "$DOWNLOAD_URL" --arg buildVersion "$BUILD" --arg minOSVersion "$MIN_OS" \
+                --argjson appIndex "$APP_INDEX" \
+                '.apps[$appIndex].versions = [{
+                  "downloadURL": $downloadURL,
+                  "size": ($size | tonumber),
+                  "version": $version,
+                  "buildVersion": $buildVersion,
+                  "date": $date,
+                  "localizedDescription": "Update via AltStore PAL",
+                  "minOSVersion": $minOSVersion
+                }] + .apps[$appIndex].versions' app-repo.json > temp.json && mv temp.json app-repo.json
+            fi
+            
+            jq --arg marketplaceID "$APPLE_ITEM_ID" --argjson appIndex "$APP_INDEX" \
+              '.apps[$appIndex].marketplaceID = $marketplaceID' app-repo.json > temp.json && mv temp.json app-repo.json
+              
+          else
+            echo "App does not exist in app-repo.json, creating a new entry"
+            
+            APP_NAME=$(echo "$BUNDLE_ID" | awk -F. '{print $NF}')
+            
+            NEW_APP=$(jq -n \
+              --arg name "$APP_NAME" \
+              --arg bundleId "$BUNDLE_ID" \
+              --arg marketplaceID "$APPLE_ITEM_ID" \
+              --arg version "$VERSION" \
+              --arg size "$SIZE" \
+              --arg date "$CURRENT_DATE" \
+              --arg downloadURL "$DOWNLOAD_URL" \
+              --arg buildVersion "$BUILD" \
+              --arg minOSVersion "$MIN_OS" \
+              '{
+                "name": $name,
+                "bundleIdentifier": $bundleId,
+                "marketplaceID": $marketplaceID,
+                "developerName": "Adrian Castro",
+                "subtitle": "AltStore PAL version of \($name)",
+                "localizedDescription": "AltStore PAL version of \($name)",
+                "iconURL": "",
+                "tintColor": "#a656e2",
+                "category": "other",
+                "screenshots": [],
+                "versions": [{
+                  "downloadURL": $downloadURL,
+                  "size": ($size | tonumber),
+                  "version": $version,
+                  "buildVersion": $buildVersion,
+                  "date": $date,
+                  "localizedDescription": "Further improvements to overall system stability and other minor adjustments have been made to enhance the user experience.",
+                  "minOSVersion": $minOSVersion
+                }],
+                "appPermissions": {
+                  "entitlements": [],
+                  "privacy": {}
+                },
+                "patreon": {}
+              }')
+            
+            jq --argjson newApp "$NEW_APP" '.apps += [$newApp]' app-repo.json > temp.json && mv temp.json app-repo.json
+            
+            if [ "$(jq '.apps | length' app-repo.json)" -eq 1 ]; then
+              jq --arg bundleId "$BUNDLE_ID" '.featuredApps += [$bundleId]' app-repo.json > temp.json && mv temp.json app-repo.json
+            fi
+          fi
+          
+          echo "app-repo.json has been updated"
+
+      - name: Commit changes
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add app-repo.json adps/
+          git commit -m "Update app-repo.json and add ADP files for ${{ inputs.adp_id }}"
+          git push
+
+  deploy:
+    needs: [process_adp]
+    if: ${{ always() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (inputs.deploy_type == 'simple_deploy' || (inputs.deploy_type == 'process_adp_and_deploy' && needs.process_adp.result == 'success')))) }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
+          
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
