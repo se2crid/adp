@@ -5,7 +5,35 @@
   "iconURL": "https://avatars.githubusercontent.com/u/151872490?v=4",
   "website": "https://adp.se2crid.me",
   "tintColor": "#56e298",
-  "featuredApps": [],
-  "apps": [],
+  "featuredApps": ["com.jkcoxson.LocalDevVPN"],
+  "apps": [
+    {
+      "name": "LocalDevVPN",
+      "bundleIdentifier": "com.jkcoxson.LocalDevVPN",
+      "marketplaceID": "6755608044",
+      "developerName": "Coxson Engineering LLC",
+      "subtitle": "AltStore PAL version of LocalDevVPN",
+      "localizedDescription": "AltStore PAL version of LocalDevVPN",
+      "iconURL": "https://i.imgur.com/yJhQr8y.png",
+      "tintColor": "#a656e2",
+      "category": "other",
+      "screenshots": [],
+      "versions": [
+        {
+          "downloadURL": "https://adp.se2crid.me/adps/33170c8e-19fb-445a-bf0a-c8ca8a6235e1",
+          "size": 6456329,
+          "version": "1.0.0",
+          "buildVersion": "3",
+          "date": "2025-12-04T23:15:57+00:00",
+          "localizedDescription": "Further improvements to overall system stability and other minor adjustments have been made to enhance the user experience.",
+          "minOSVersion": "14.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {}
+      }
+    }
+  ],
   "news": []
 }

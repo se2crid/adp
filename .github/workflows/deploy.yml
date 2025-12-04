@@ -78,6 +78,8 @@ jobs:
           BUILD=$(jq -r '.bundleVersion' "$MANIFEST_FILE")
           MIN_OS=$(jq -r '.minimumSystemVersions.ios' "$MANIFEST_FILE")
           APPLE_ITEM_ID=$(jq -r '.appleItemId' "$MANIFEST_FILE")
+          DEFAULT_DEVELOPER_NAME="Coxson Engineering LLC"
+          DEFAULT_MARKETPLACE_ID="6755608044"
           
           echo "App details:"
           echo "Bundle ID: $BUNDLE_ID"
@@ -131,9 +133,6 @@ jobs:
                 }] + .apps[$appIndex].versions' app-repo.json > temp.json && mv temp.json app-repo.json
             fi
             
-            jq --arg marketplaceID "$APPLE_ITEM_ID" --argjson appIndex "$APP_INDEX" \
-              '.apps[$appIndex].marketplaceID = $marketplaceID' app-repo.json > temp.json && mv temp.json app-repo.json
-              
           else
             echo "App does not exist in app-repo.json, creating a new entry"
             
@@ -142,7 +141,8 @@ jobs:
             NEW_APP=$(jq -n \
               --arg name "$APP_NAME" \
               --arg bundleId "$BUNDLE_ID" \
-              --arg marketplaceID "$APPLE_ITEM_ID" \
+              --arg marketplaceID "$DEFAULT_MARKETPLACE_ID" \
+              --arg developerName "$DEFAULT_DEVELOPER_NAME" \
               --arg version "$VERSION" \
               --arg size "$SIZE" \
               --arg date "$CURRENT_DATE" \
@@ -153,7 +153,7 @@ jobs:
                 "name": $name,
                 "bundleIdentifier": $bundleId,
                 "marketplaceID": $marketplaceID,
-                "developerName": "Adrian Castro",
+                "developerName": $developerName,
                 "subtitle": "AltStore PAL version of \($name)",
                 "localizedDescription": "AltStore PAL version of \($name)",
                 "iconURL": "",
@@ -172,8 +172,7 @@ jobs:
                 "appPermissions": {
                   "entitlements": [],
                   "privacy": {}
-                },
-                "patreon": {}
+                }
               }')
             
             jq --argjson newApp "$NEW_APP" '.apps += [$newApp]' app-repo.json > temp.json && mv temp.json app-repo.json
