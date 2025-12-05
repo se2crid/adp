@@ -204,6 +204,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
+
+      - name: Keep root serving JSON
+        run: cp app-repo.json index.html
       
       - name: Setup Pages
         uses: actions/configure-pages@v4
