@@ -1,1 +1,1 @@
-adp.se2crid.me/app-repo.json
+adp.se2crid.me
