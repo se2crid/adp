@@ -5,7 +5,9 @@
   "iconURL": "https://avatars.githubusercontent.com/u/151872490?v=4",
   "website": "https://adp.se2crid.me",
   "tintColor": "#56e298",
-  "featuredApps": ["com.jkcoxson.LocalDevVPN"],
+  "featuredApps": [
+    "com.jkcoxson.LocalDevVPN"
+  ],
   "apps": [
     {
       "name": "LocalDevVPN",
@@ -19,6 +21,15 @@
       "category": "other",
       "screenshots": [],
       "versions": [
+        {
+          "downloadURL": "https://adp.se2crid.me/adps/b7fed71a-5f72-4689-8e26-7c16ca80a790",
+          "size": 6582878,
+          "version": "1.1.4",
+          "buildVersion": "3",
+          "date": "2025-12-12T21:52:43+00:00",
+          "localizedDescription": "Update via AltStore PAL",
+          "minOSVersion": "14.0"
+        },
         {
           "downloadURL": "https://adp.se2crid.me/adps/33170c8e-19fb-445a-bf0a-c8ca8a6235e1",
           "size": 6456329,
