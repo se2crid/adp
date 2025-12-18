@@ -22,6 +22,15 @@
       "screenshots": [],
       "versions": [
         {
+          "downloadURL": "https://adp.se2crid.me/adps/ff578a0d-3bfd-4592-bd15-f615b8835c60",
+          "size": 11126789,
+          "version": "1.1.5",
+          "buildVersion": "1",
+          "date": "2025-12-18T20:23:05+00:00",
+          "localizedDescription": "Update via AltStore PAL",
+          "minOSVersion": "14.0"
+        },
+        {
           "downloadURL": "https://adp.se2crid.me/adps/b7fed71a-5f72-4689-8e26-7c16ca80a790",
           "size": 6582878,
           "version": "1.1.4",
